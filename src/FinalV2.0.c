@@ -415,13 +415,12 @@ void incrementar(void) {
 			fraccion = 0; // fraccion se reinicializa a 0 para poder seguir iterando
 		}
 		for(fraccion; fraccion < 48; fraccion++) {
+			unidadActual = fraccion % 10;
+			decenaActual = fraccion / 10;
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
 			if(vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) {
 				flagStop = 1;
 				break;
-			} else {
-				unidadActual = fraccion % 10;
-				decenaActual = fraccion / 10;
-				for(retardo = 0; retardo < retardo_max; retardo++) {}
 			}
 		}
 
