@@ -18,7 +18,8 @@
 
 void displayInit(void); // habilitar display como salida
 void keyboardInit(void); // settings para teclado matricial
-void rotacion(void); // rotacion de valores de vueltaAct, decenaAct y unidadAct
+void setVDU(void); // seteo de valores de vueltaAct, decenaAct y unidadAct
+void tmr0Init(void); // inicializacion de timer0 para refresco de displays
 
 //Registros GPIO0
 unsigned int volatile * const FIO0DIR =(unsigned int *) 0x2009C000;
@@ -62,7 +63,7 @@ uint32_t output[] = {
 		0b00000000000001000000000000000011,
 		0b00000000100001111000000000000011,
 		0b00000000100001110000000000000011,
-		0b00000000000000000000000000000000};
+		0b00000000000000000000000000000000}; // la posicion 10 en el array es el display apagado
 // "output" contiene los binarios de 0 a 9 y display apagado
 
 int fraccion, periodo, mpx, retardo, teclaPres, flagReset, flagStart = 0;
@@ -77,13 +78,7 @@ int retardo_max = 1000000;
 int main(void) {
 	displayInit(); // habilitar salidas hacia segmentos de displays y mpx
 	keyboardInit(); // setear teclado matricial en GPIO2
-
-	*FIO1CLR |= (1 << 30) | (1 << 31);
-    *T0TCR = 0;
-    *T0MR0=25000;
-    *T0MCR |= (1<<1)|(1<<0); //interrumpo y reseteo en Match0
-    *ISER0 = (1<<1);
-    *T0TCR |= 1;
+	tmr0Init(); // inicializar tmr0 para barrido de displays
 
 	while(1) {
 		while(!flagStart) {}
@@ -155,6 +150,16 @@ void keyboardInit(void) {
 	 */
 }
 
+void tmr0Init(void) {
+	*FIO1CLR |= (1 << 30) | (1 << 31);
+    *T0TCR = 0;
+    *T0MR0=25000;
+    *T0MCR |= (1<<1)|(1<<0); //interrumpo y reseteo en Match0
+    *ISER0 = (1<<1);
+    *T0TCR |= 1;
+    return;
+}
+
 void TIMER0_IRQHandler(void) {
     if(*T0IR & (1 << 0)) {
     	switch(mpx) {
@@ -190,102 +195,90 @@ void TIMER0_IRQHandler(void) {
 
 void EINT3_IRQHandler(void) {
 	for(int a = 0; a < 250000; a++) {} // retardo de 10 ms (antirrebote)
-//	int teclaPres;
-	if(*IO2IntStatF & (1 << 7)) {
-		// interrupcion en fila 1 (numeros 1, 2 y 3)
+	if(*IO2IntStatF & (1 << 7)) { // interrupcion en fila 1 (numeros 1, 2 y 3)
+
 		*FIO2SET |= (1 << 3) | (1 << 2) | (1 << 1); // se pónen en alto todas las salidas
 
 		*FIO2CLR |= (1 << 3); // se pone en bajo salida a columna 1 (numero 1)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 7))) {
 			teclaPres = 1;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 3); // se pónen en alto la salida a columna 1
+
 		*FIO2CLR |= (1 << 2); // se pone en bajo salida a columna 2 (numero 2)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 7))) {
 			teclaPres = 2;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 2); // se pónen en alto la salida a columna 2
+
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (numero 3)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 7))) {
 			teclaPres = 3;
-			rotacion();
+			setVDU();
 		}
 
 		*FIO2CLR |= (1 << 3) | (1 << 2) | (1 << 1); // se ponen en bajo todas las salidas
 	}
-	else if(*IO2IntStatF & (1 << 6)) {
-		// interrupcion en fila 2 (numeros 4,5 y 6)
+	else if(*IO2IntStatF & (1 << 6)) { // interrupcion en fila 2 (numeros 4,5 y 6)
+
 		*FIO2SET |= (1 << 3) | (1 << 2) | (1 << 1); // se pónen en alto todas las salidas
 
 		*FIO2CLR |= (1 << 3); // se pone en bajo salida a columna 1 (numero 4)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 6))) {
 			teclaPres = 4;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 3); // se pónen en alto la salida a columna 1
+
 		*FIO2CLR |= (1 << 2); // se pone en bajo salida a columna 2 (numero 5)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 6))) {
 			teclaPres = 5;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 2); // se pónen en alto la salida a columna 2
+
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (numero 6)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 6))) {
 			teclaPres = 6;
-			rotacion();
+			setVDU();
 		}
 
 		*FIO2CLR |= (1 << 3) | (1 << 2) | (1 << 1); // se ponen en bajo todas las salidas
 	}
-	else if(*IO2IntStatF & (1 << 5)) {
-		// interrupcion en fila 3 (numeros 7, 8 y 9)
+	else if(*IO2IntStatF & (1 << 5)) { // interrupcion en fila 3 (numeros 7, 8 y 9)
+
 		*FIO2SET |= (1 << 3) | (1 << 2) | (1 << 1); // se pónen en alto todas las salidas
 
 		*FIO2CLR |= (1 << 3); // se pone en bajo salida a columna 1 (numero 7)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 5))) {
 			teclaPres = 7;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 3); // se pónen en alto la salida a columna 1
+
 		*FIO2CLR |= (1 << 2); // se pone en bajo salida a columna 2 (numero 8)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 5))) {
 			teclaPres = 8;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 2); // se pónen en alto la salida a columna 2
+
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (numero 9)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 5))) {
 			teclaPres = 9;
-			rotacion();
+			setVDU();
 		}
 
 		*FIO2CLR |= (1 << 3) | (1 << 2) | (1 << 1); // se ponen en bajo todas las salidas
 	}
-	else if(*IO2IntStatF & (1 << 4)) {
-		// interrupcion en fila 4 (start, numero 0 y stop)
+	else if(*IO2IntStatF & (1 << 4)) { // interrupcion en fila 4 (RESET (*), numero 0 y START/STOP (#))
+
 		*FIO2SET |= (1 << 3) | (1 << 2) | (1 << 1); // se pónen en alto todas las salidas
 
 		*FIO2CLR |= (1 << 3); // se pone en bajo salida a columna 1 (numero 4)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
-		if(!(*FIO2PIN & (1 << 4))) {
-			// se presiono * que equivale a Reset
+		if(!(*FIO2PIN & (1 << 4))) { // se presiono * que equivale a Reset
 			flagReset = 0;
 			decenaAct = 10;
 			unidadAct = 10;
@@ -294,15 +287,13 @@ void EINT3_IRQHandler(void) {
 		*FIO2SET |= (1 << 3); // se pónen en alto la salida a columna 1
 
 		*FIO2CLR |= (1 << 2); // se pone en bajo salida a columna 2 (numero 0)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 4))) {
 			teclaPres = 0;
-			rotacion();
+			setVDU();
 		}
-
 		*FIO2SET |= (1 << 2); // se pónen en alto la salida a columna 2
+
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (numero 9)
-//		for(int b = 0; b < 25000; b++) {} // retardo de 1 ms para replicar el '0' en el pin de entrada
 		if(!(*FIO2PIN & (1 << 4))) {
 			unidadSaved = unidadAct;
 			decenaSaved = decenaAct;
@@ -318,7 +309,7 @@ void EINT3_IRQHandler(void) {
 	return;
 }
 
-void rotacion(void) {
+void setVDU(void) {
 	switch(flagReset) {
 	case 0:
 		vueltaAct = teclaPres;
