@@ -61,20 +61,26 @@ uint32_t output[] = {
 		0b00000000000000000000000000000000}; // la posicion 10 en el array es el display apagado
 // "output" contiene los binarios de 0 a 9 y display apagado
 
-int fraccion, periodo, mpx, retardo, teclaPres, flagReset, flagStart = 0;
-int unidadAct = 10;
-int decenaAct = 10;
-int vueltaAct = 10;
+int fraccion, periodo, mpx, retardo, teclaPres, flagReset, flagStart, flagStop = 0;
+int unidadActual = 10;
+int decenaActual = 10;
+int vueltaActual = 10;
 
-int unidadSaved, decenaSaved, vueltaSaved;
+int unidadAnterior = 0;
+int decenaAnterior = 0;
+int vueltaAnterior = 0;
 
-int retardo_max = 2000000;
+int unidadNueva, decenaNueva, vueltaNueva;
+
+int retardo_max = 500000;
 
 void displayInit(void); // habilitar display como salida
 void keyboardInit(void); // settings para teclado matricial
-void setVDU(void); // seteo de valores de vueltaAct, decenaAct y unidadAct
+void setVDU(void); // seteo de valores de vueltaActual, decenaActual y unidadActual
 void tmr0Init(void); // inicializacion de timer0 para refresco de displays
 void iniciarGiro(void); // inicia giro del motor (por ahora es un simulador que realiza conteo visible en displays)
+void incrementar(void); // incrementar vueltas de motor
+void decrementar(void); // decrementar vueltas de motor
 
 int main(void) {
 	displayInit(); // habilitar salidas hacia segmentos de displays y mpx
@@ -151,19 +157,19 @@ void TIMER0_IRQHandler(void) {
     			break;
     		case 1:
     			*FIO0CLR |= (1 << 25);
-    			*FIO0PIN = output[unidadAct];
+    			*FIO0PIN = output[unidadActual];
     			*FIO0SET |= (1 << 26);
     			mpx++;
     			break;
     		case 2:
     			*FIO0CLR |= (1 << 26);
-    			*FIO0PIN = output[decenaAct];
+    			*FIO0PIN = output[decenaActual];
     			*FIO1SET |= (1 << 30);
     			mpx++;
     			break;
     		default:
     			*FIO1CLR |= (1 << 30);
-    			*FIO0PIN = output[vueltaAct] | (1 << 24);
+    			*FIO0PIN = output[vueltaActual] | (1 << 24);
     			*FIO1SET |= (1 << 31);
     			mpx = 0;
     			break;
@@ -265,9 +271,9 @@ void EINT3_IRQHandler(void) {
 				 * si la bandera de conteo está en alto, no se admite RESET
 				 */
 				flagReset = 0;
-				decenaAct = 10;
-				unidadAct = 10;
-				vueltaAct = 10;
+				decenaActual = 10;
+				unidadActual = 10;
+				vueltaActual = 10;
 			}
 		}
 		*FIO2SET |= (1 << 3); // se ponen en alto la salida a columna 1
@@ -281,7 +287,7 @@ void EINT3_IRQHandler(void) {
 
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (#)
 		if(!(*FIO2PIN & (1 << 4))) {
-			flagStart = 1;
+			flagStart = 1; // se habilita el conteo en main (el cual llama a la funcion "iniciarGiro")
 		}
 
 		*FIO2CLR |= (1 << 3) | (1 << 2) | (1 << 1); // se ponen en bajo todas las salidas
@@ -295,10 +301,10 @@ void EINT3_IRQHandler(void) {
 void setVDU(void) {
 	switch(flagReset) {
 	case 0:
-		vueltaAct = teclaPres;
-		if(vueltaAct == 9) {
-			decenaAct = 0;
-			unidadAct = 0;
+		vueltaActual = teclaPres;
+		if(vueltaActual == 9) {
+			decenaActual = 0;
+			unidadActual = 0;
 			flagReset = 3;
 		} else {
 			flagReset++;
@@ -309,15 +315,15 @@ void setVDU(void) {
 		if(teclaPres > 4) {
 			break;
 		} else {
-			decenaAct = teclaPres;
+			decenaActual = teclaPres;
 			flagReset++;
 			break;
 		}
 	case 2:
-		if(decenaAct == 4 && teclaPres > 7) {
+		if(decenaActual == 4 && teclaPres > 7) {
 			break;
 		} else {
-			unidadAct = teclaPres;
+			unidadActual = teclaPres;
 			flagReset++;
 			break;
 		}
@@ -329,22 +335,112 @@ void iniciarGiro(void) {
 
 	flagReset = 3; // flagReset se pone en 3 para evitar el ingreso de nuevos numeros durante el conteo
 
-	for(vueltaAct = 8; vueltaAct <= 9; vueltaAct++) {
-		if(vueltaAct != 9) {
-			for(fraccion = 0; fraccion < 48; fraccion++) {
-				unidadAct = fraccion % 10;
-				decenaAct = fraccion / 10;
-				for(retardo = 0; retardo < retardo_max; retardo++) {}
-			}
+	// se copian los valores ingresados a vuelta/decena/unidadNueva
+	vueltaNueva = vueltaActual;
+	decenaNueva = decenaActual;
+	unidadNueva = unidadActual;
+
+	// se copian los valores anteriores a valores actuales
+	// (esto se debe a que TMR0 solo barre los valores de vuelta/decena/unidadActual para mostrarlos en displays)
+	vueltaActual = vueltaAnterior;
+	decenaActual = decenaAnterior;
+	unidadActual = unidadAnterior;
+	fraccion = decenaActual * 10 + unidadActual;
+
+	if(vueltaNueva > vueltaAnterior) {
+		incrementar();
+	} else if (vueltaNueva < vueltaAnterior) {
+		decrementar();
+	} else {
+		if(decenaNueva > decenaAnterior) {
+			incrementar();
+		} else if(decenaNueva < decenaAnterior) {
+			decrementar();
 		} else {
-			unidadAct = 0;
-			decenaAct = 0;
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			break;
+			if(unidadNueva > unidadAnterior) {
+				incrementar();
+			} else if(unidadNueva < unidadAnterior) {
+				decrementar();
+			} else {
+				// los numeros son exactamente iguales y no se hace nada
+			}
 		}
 	}
 
+	vueltaAnterior = vueltaActual; // los nuevos valores se colocan en las variables "anteriores" para un proximo conteo
+	decenaAnterior = decenaActual;
+	unidadAnterior = unidadActual;
+
+
 	flagStart = 0; // flagStart se vuelve a cero para admitir nuevamente el ingreso de números mediante teclado
 
+	return;
+}
+
+void incrementar(void) {
+//	for(vueltaActual; vueltaActual <= 9; vueltaActual++) {
+//		if(vueltaActual != 9) {
+//			for(fraccion = 0; fraccion < 48; fraccion++) {
+//				unidadActual = fraccion % 10;
+//				decenaActual = fraccion / 10;
+//				for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			}
+//		} else {
+//			unidadActual = 0;
+//			decenaActual = 0;
+//			for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			break;
+//		}
+//	}
+
+//	for(vueltaActual = vueltaAnterior; vueltaActual <= vueltaNueva; vueltaActual++) {
+//		if(vueltaActual != 9) {
+//			for(fraccion = 0; fraccion < 48; fraccion++) {
+//				unidadActual = fraccion % 10;
+//				decenaActual = fraccion / 10;
+//				for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			}
+//		} else {
+//			unidadActual = 0;
+//			decenaActual = 0;
+//			for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			break;
+//		}
+//	}
+
+	int conteoVueltas = 0;
+
+	for(vueltaActual; vueltaActual <= 8; vueltaActual++) {
+		if(conteoVueltas) {
+			fraccion = 0; // fraccion se reinicializa a 0 para poder seguir iterando
+		}
+		for(fraccion; fraccion < 48; fraccion++) {
+			if(vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) {
+				flagStop = 1;
+				break;
+			} else {
+				unidadActual = fraccion % 10;
+				decenaActual = fraccion / 10;
+				for(retardo = 0; retardo < retardo_max; retardo++) {}
+			}
+		}
+
+		if(flagStop) {
+			break;
+		}
+
+		conteoVueltas++;
+	}
+
+	if(vueltaActual == 9) { // condicion para "pintar" 9.00 en los displays
+		decenaActual = 0;
+		unidadActual = 0;
+	}
+
+	flagStop = 0; // se vuelve flagStop a cero para que en un proximo conteo esta condicion no se cumpla inmediatamente se ingresa al "for"
+	return;
+}
+
+void decrementar(void) {
 	return;
 }
