@@ -16,11 +16,6 @@
 
 #include <stdio.h>
 
-void displayInit(void); // habilitar display como salida
-void keyboardInit(void); // settings para teclado matricial
-void setVDU(void); // seteo de valores de vueltaAct, decenaAct y unidadAct
-void tmr0Init(void); // inicializacion de timer0 para refresco de displays
-
 //Registros GPIO0
 unsigned int volatile * const FIO0DIR =(unsigned int *) 0x2009C000;
 unsigned int volatile * const FIO0PIN =(unsigned int *) 0x2009C014;
@@ -73,7 +68,13 @@ int vueltaAct = 10;
 
 int unidadSaved, decenaSaved, vueltaSaved;
 
-int retardo_max = 1000000;
+int retardo_max = 2000000;
+
+void displayInit(void); // habilitar display como salida
+void keyboardInit(void); // settings para teclado matricial
+void setVDU(void); // seteo de valores de vueltaAct, decenaAct y unidadAct
+void tmr0Init(void); // inicializacion de timer0 para refresco de displays
+void iniciarGiro(void); // inicia giro del motor (por ahora es un simulador que realiza conteo visible en displays)
 
 int main(void) {
 	displayInit(); // habilitar salidas hacia segmentos de displays y mpx
@@ -81,30 +82,9 @@ int main(void) {
 	tmr0Init(); // inicializar tmr0 para barrido de displays
 
 	while(1) {
-		while(!flagStart) {}
-
-		while(flagStart){
-			for(vueltaAct = 0; vueltaAct < 10; vueltaAct++) {
-				if(vueltaAct != 9) {
-					for(fraccion = 0; fraccion < 48; fraccion++) {
-						unidadAct = fraccion % 10;
-						decenaAct = fraccion / 10;
-						if(vueltaAct == vueltaSaved && decenaAct == decenaSaved && unidadAct == unidadSaved) {
-							break;
-						}
-						for(retardo = 0; retardo < retardo_max; retardo++) {}
-					}
-				} else {
-					unidadAct = 0;
-					decenaAct = 0;
-					if(vueltaAct == vueltaSaved && decenaAct == decenaSaved && unidadAct == unidadSaved) {
-						break;
-					}
-					for(retardo = 0; retardo < retardo_max; retardo++) {}
-				}
-			}
+		if(flagStart) {
+			iniciarGiro();
 		}
-		flagStart = 0;
 	}
 
     return 0 ;
@@ -277,14 +257,20 @@ void EINT3_IRQHandler(void) {
 
 		*FIO2SET |= (1 << 3) | (1 << 2) | (1 << 1); // se pónen en alto todas las salidas
 
-		*FIO2CLR |= (1 << 3); // se pone en bajo salida a columna 1 (numero 4)
+		*FIO2CLR |= (1 << 3); // se pone en bajo salida a columna 1 (*)
 		if(!(*FIO2PIN & (1 << 4))) { // se presiono * que equivale a Reset
-			flagReset = 0;
-			decenaAct = 10;
-			unidadAct = 10;
-			vueltaAct = 10;
+			if (!flagStart) {
+				/*
+				 * se chequea que no esté en alto la bandera de conteo:
+				 * si la bandera de conteo está en alto, no se admite RESET
+				 */
+				flagReset = 0;
+				decenaAct = 10;
+				unidadAct = 10;
+				vueltaAct = 10;
+			}
 		}
-		*FIO2SET |= (1 << 3); // se pónen en alto la salida a columna 1
+		*FIO2SET |= (1 << 3); // se ponen en alto la salida a columna 1
 
 		*FIO2CLR |= (1 << 2); // se pone en bajo salida a columna 2 (numero 0)
 		if(!(*FIO2PIN & (1 << 4))) {
@@ -293,11 +279,8 @@ void EINT3_IRQHandler(void) {
 		}
 		*FIO2SET |= (1 << 2); // se pónen en alto la salida a columna 2
 
-		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (numero 9)
+		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (#)
 		if(!(*FIO2PIN & (1 << 4))) {
-			unidadSaved = unidadAct;
-			decenaSaved = decenaAct;
-			vueltaSaved = vueltaAct;
 			flagStart = 1;
 		}
 
@@ -339,5 +322,29 @@ void setVDU(void) {
 			break;
 		}
 	}
+	return;
+}
+
+void iniciarGiro(void) {
+
+	flagReset = 3; // flagReset se pone en 3 para evitar el ingreso de nuevos numeros durante el conteo
+
+	for(vueltaAct = 8; vueltaAct <= 9; vueltaAct++) {
+		if(vueltaAct != 9) {
+			for(fraccion = 0; fraccion < 48; fraccion++) {
+				unidadAct = fraccion % 10;
+				decenaAct = fraccion / 10;
+				for(retardo = 0; retardo < retardo_max; retardo++) {}
+			}
+		} else {
+			unidadAct = 0;
+			decenaAct = 0;
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+			break;
+		}
+	}
+
+	flagStart = 0; // flagStart se vuelve a cero para admitir nuevamente el ingreso de números mediante teclado
+
 	return;
 }
