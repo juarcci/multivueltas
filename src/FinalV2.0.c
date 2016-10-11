@@ -88,23 +88,23 @@ int main(void) {
 	tmr0Init(); // inicializar tmr0 para barrido de displays
 
 	while(1) {
-// ********** INTENTO DE CURSOR (NO FUNCIONA)
-//		if(vueltaActual == 10) {
-//			vueltaActual |= (1 << 17);
-//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			vueltaActual &= ~(1 << 17);
-//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
-//		} else if(decenaActual == 10) {
-//			decenaActual |= (1 << 17);
-//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			decenaActual &= ~(1 << 17);
-//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
-//		} else if(unidadActual == 10) {
-//			unidadActual |= (1 << 17);
-//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			unidadActual &= ~(1 << 17);
-//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
-//		}
+// ********** INTENTO DE CURSOR (NO FUNCIONA PERO CASI)
+		if(vueltaActual == 10) {
+			output[vueltaActual] |= (1 << 17);
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+			output[vueltaActual] &= ~(1 << 17);
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+		} else if(vueltaActual != 10 && decenaActual == 10) {
+			output[decenaActual] |= (1 << 17);
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+			output[decenaActual] &= ~(1 << 17);
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+		} else if(vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
+			output[unidadActual] |= (1 << 17);
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+			output[unidadActual] &= ~(1 << 17);
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+		}
 
 		if(flagStart) {
 			iniciarGiro();
