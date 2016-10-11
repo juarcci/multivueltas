@@ -88,6 +88,24 @@ int main(void) {
 	tmr0Init(); // inicializar tmr0 para barrido de displays
 
 	while(1) {
+// ********** INTENTO DE CURSOR (NO FUNCIONA)
+//		if(vueltaActual == 10) {
+//			vueltaActual |= (1 << 17);
+//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			vueltaActual &= ~(1 << 17);
+//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
+//		} else if(decenaActual == 10) {
+//			decenaActual |= (1 << 17);
+//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			decenaActual &= ~(1 << 17);
+//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
+//		} else if(unidadActual == 10) {
+//			unidadActual |= (1 << 17);
+//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
+//			unidadActual &= ~(1 << 17);
+//			//for(retardo = 0; retardo < retardo_max; retardo++) {}
+//		}
+
 		if(flagStart) {
 			iniciarGiro();
 		}
@@ -291,7 +309,11 @@ void EINT3_IRQHandler(void) {
 				/*
 				 * se debe cumplir que los 3 numeros esten seteados para poder dar START
 				 */
-				flagStart = 1; // se habilita el conteo en main (el cual llama a la funcion "iniciarGiro")
+				if (!flagStart) {
+					flagStart = 1; // se habilita el conteo en main (el cual llama a la funcion "iniciarGiro")
+				} else {
+					flagStart = 0; // si esta en proceso de conteo, se puede bajar el flag para detener (STOP)
+				}
 			}
 		}
 
@@ -393,7 +415,7 @@ void incrementar(void) {
 			unidadActual = fraccion % 10;
 			decenaActual = fraccion / 10;
 			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			if(vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) {
+			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) || flagStart == 0) {
 				flagStop = 1;
 				break;
 			}
@@ -426,7 +448,7 @@ void decrementar(void) {
 			unidadActual = fraccion % 10;
 			decenaActual = fraccion / 10;
 			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			if(vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) {
+			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) || flagStart == 0) {
 				flagStop = 1;
 				break;
 			}
