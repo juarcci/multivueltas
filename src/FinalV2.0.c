@@ -72,7 +72,7 @@ int vueltaAnterior = 0;
 
 int unidadNueva, decenaNueva, vueltaNueva;
 
-int retardo_max = 500000;
+int retardo_max = 1000000;
 
 void displayInit(void); // habilitar display como salida
 void keyboardInit(void); // settings para teclado matricial
@@ -287,7 +287,12 @@ void EINT3_IRQHandler(void) {
 
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (#)
 		if(!(*FIO2PIN & (1 << 4))) {
-			flagStart = 1; // se habilita el conteo en main (el cual llama a la funcion "iniciarGiro")
+			if (vueltaActual < 10 && decenaActual < 10 && unidadActual < 10) {
+				/*
+				 * se debe cumplir que los 3 numeros esten seteados para poder dar START
+				 */
+				flagStart = 1; // se habilita el conteo en main (el cual llama a la funcion "iniciarGiro")
+			}
 		}
 
 		*FIO2CLR |= (1 << 3) | (1 << 2) | (1 << 1); // se ponen en bajo todas las salidas
@@ -378,36 +383,6 @@ void iniciarGiro(void) {
 }
 
 void incrementar(void) {
-//	for(vueltaActual; vueltaActual <= 9; vueltaActual++) {
-//		if(vueltaActual != 9) {
-//			for(fraccion = 0; fraccion < 48; fraccion++) {
-//				unidadActual = fraccion % 10;
-//				decenaActual = fraccion / 10;
-//				for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			}
-//		} else {
-//			unidadActual = 0;
-//			decenaActual = 0;
-//			for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			break;
-//		}
-//	}
-
-//	for(vueltaActual = vueltaAnterior; vueltaActual <= vueltaNueva; vueltaActual++) {
-//		if(vueltaActual != 9) {
-//			for(fraccion = 0; fraccion < 48; fraccion++) {
-//				unidadActual = fraccion % 10;
-//				decenaActual = fraccion / 10;
-//				for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			}
-//		} else {
-//			unidadActual = 0;
-//			decenaActual = 0;
-//			for(retardo = 0; retardo < retardo_max; retardo++) {}
-//			break;
-//		}
-//	}
-
 	int conteoVueltas = 0;
 
 	for(vueltaActual; vueltaActual <= 8; vueltaActual++) {
@@ -441,5 +416,34 @@ void incrementar(void) {
 }
 
 void decrementar(void) {
+	int conteoVueltas = 0;
+
+	for(vueltaActual; vueltaActual >= 0; vueltaActual--) {
+		if(conteoVueltas) {
+			fraccion = 47; // fraccion se reinicializa a 0 para poder seguir iterando
+		}
+		for(fraccion; fraccion >= 0; fraccion--) {
+			unidadActual = fraccion % 10;
+			decenaActual = fraccion / 10;
+			for(retardo = 0; retardo < retardo_max; retardo++) {}
+			if(vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) {
+				flagStop = 1;
+				break;
+			}
+		}
+
+		if(flagStop) {
+			break;
+		}
+
+		conteoVueltas++;
+	}
+
+	if(vueltaActual == 9) { // condicion para "pintar" 9.00 en los displays
+		decenaActual = 0;
+		unidadActual = 0;
+	}
+
+	flagStop = 0; // se vuelve flagStop a cero para que en un proximo conteo esta condicion no se cumpla inmediatamente se ingresa al "for"
 	return;
 }
