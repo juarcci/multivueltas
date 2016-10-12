@@ -74,6 +74,8 @@ int unidadNueva, decenaNueva, vueltaNueva;
 
 int retardo_max = 1000000;
 
+int cursor = 0;
+
 void displayInit(void); // habilitar display como salida
 void keyboardInit(void); // settings para teclado matricial
 void setVDU(void); // seteo de valores de vueltaActual, decenaActual y unidadActual
@@ -88,24 +90,6 @@ int main(void) {
 	tmr0Init(); // inicializar tmr0 para barrido de displays
 
 	while(1) {
-// ********** INTENTO DE CURSOR (NO FUNCIONA PERO CASI)
-		if(vueltaActual == 10) {
-			output[vueltaActual] |= (1 << 17);
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			output[vueltaActual] &= ~(1 << 17);
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-		} else if(vueltaActual != 10 && decenaActual == 10) {
-			output[decenaActual] |= (1 << 17);
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			output[decenaActual] &= ~(1 << 17);
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-		} else if(vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
-			output[unidadActual] |= (1 << 17);
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			output[unidadActual] &= ~(1 << 17);
-			for(retardo = 0; retardo < retardo_max; retardo++) {}
-		}
-
 		if(flagStart) {
 			iniciarGiro();
 		}
@@ -166,6 +150,10 @@ void tmr0Init(void) {
 
 void TIMER0_IRQHandler(void) {
     if(*T0IR & (1 << 0)) {
+    	cursor++; // contador que permite prender y apagar el cursor
+    	if(cursor == 800) {
+    		cursor = 0;
+    	}
     	switch(mpx) {
     		case 0:
     			*FIO1CLR |= (1 << 31);
@@ -175,19 +163,43 @@ void TIMER0_IRQHandler(void) {
     			break;
     		case 1:
     			*FIO0CLR |= (1 << 25);
-    			*FIO0PIN = output[unidadActual];
+
+    			if(cursor < 400 && vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
+    				*FIO0PIN = output[unidadActual] | (1 << 17);
+    			} else if(cursor >= 400 && vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
+    				*FIO0PIN = output[unidadActual];
+    			} else {
+    				*FIO0PIN = output[unidadActual];
+    			}
+
     			*FIO0SET |= (1 << 26);
     			mpx++;
     			break;
     		case 2:
     			*FIO0CLR |= (1 << 26);
-    			*FIO0PIN = output[decenaActual];
+
+    			if(cursor < 400 && vueltaActual != 10 && decenaActual == 10) {
+    				*FIO0PIN = output[decenaActual] | (1 << 17);
+    			} else if(cursor >= 400 && vueltaActual != 10 && decenaActual == 10) {
+    				*FIO0PIN = output[decenaActual];
+    			} else {
+    				*FIO0PIN = output[decenaActual];
+    			}
+
     			*FIO1SET |= (1 << 30);
     			mpx++;
     			break;
     		default:
     			*FIO1CLR |= (1 << 30);
-    			*FIO0PIN = output[vueltaActual] | (1 << 24);
+
+    			if(cursor < 400 && vueltaActual == 10) {
+    				*FIO0PIN = output[vueltaActual] | (1 << 24) | (1 << 17);
+    			} else if(cursor >= 400 && vueltaActual == 10) {
+    				*FIO0PIN = output[vueltaActual] | (1 << 24);
+    			} else {
+    				*FIO0PIN = output[vueltaActual] | (1 << 24);
+    			}
+
     			*FIO1SET |= (1 << 31);
     			mpx = 0;
     			break;
