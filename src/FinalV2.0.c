@@ -161,21 +161,21 @@ void TIMER0_IRQHandler(void) {
     			*FIO0SET |= (1 << 25);
     			mpx++;
     			break;
+//    		case 1:
+//    			*FIO0CLR |= (1 << 25);
+//
+//    			if(cursor < 400 && vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
+//    				*FIO0PIN = output[unidadActual] | (1 << 17);
+//    			} else if(cursor >= 400 && vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
+//    				*FIO0PIN = output[unidadActual];
+//    			} else {
+//    				*FIO0PIN = output[unidadActual];
+//    			}
+//
+//    			*FIO0SET |= (1 << 26);
+//    			mpx++;
+//    			break;
     		case 1:
-    			*FIO0CLR |= (1 << 25);
-
-    			if(cursor < 400 && vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
-    				*FIO0PIN = output[unidadActual] | (1 << 17);
-    			} else if(cursor >= 400 && vueltaActual != 10 && decenaActual != 10 && unidadActual == 10) {
-    				*FIO0PIN = output[unidadActual];
-    			} else {
-    				*FIO0PIN = output[unidadActual];
-    			}
-
-    			*FIO0SET |= (1 << 26);
-    			mpx++;
-    			break;
-    		case 2:
     			*FIO0CLR |= (1 << 26);
 
     			if(cursor < 400 && vueltaActual != 10 && decenaActual == 10) {
@@ -317,7 +317,8 @@ void EINT3_IRQHandler(void) {
 
 		*FIO2CLR |= (1 << 1); // se pone en bajo salida a columna 3 (#)
 		if(!(*FIO2PIN & (1 << 4))) {
-			if (vueltaActual < 10 && decenaActual < 10 && unidadActual < 10) {
+//			if (vueltaActual < 10 && decenaActual < 10 && unidadActual < 10) {
+			if (vueltaActual < 10 && decenaActual < 10) {
 				/*
 				 * se debe cumplir que los 3 numeros esten seteados para poder dar START
 				 */
@@ -343,7 +344,7 @@ void setVDU(void) {
 		vueltaActual = teclaPres;
 		if(vueltaActual == 9) {
 			decenaActual = 0;
-			unidadActual = 0;
+//			unidadActual = 0;
 			flagReset = 3;
 		} else {
 			flagReset++;
@@ -351,21 +352,21 @@ void setVDU(void) {
 		break;
 
 	case 1:
-		if(teclaPres > 4) {
-			break;
-		} else {
+//		if(teclaPres > 4) {
+//			break;
+//		} else {
 			decenaActual = teclaPres;
-			flagReset++;
+			flagReset = 3;
 			break;
-		}
-	case 2:
-		if(decenaActual == 4 && teclaPres > 7) {
-			break;
-		} else {
-			unidadActual = teclaPres;
-			flagReset++;
-			break;
-		}
+//		}
+//	case 2:
+//		if(decenaActual == 4 && teclaPres > 7) {
+//			break;
+//		} else {
+//			unidadActual = teclaPres;
+//			flagReset++;
+//			break;
+//		}
 	}
 	return;
 }
@@ -377,14 +378,15 @@ void iniciarGiro(void) {
 	// se copian los valores ingresados a vuelta/decena/unidadNueva
 	vueltaNueva = vueltaActual;
 	decenaNueva = decenaActual;
-	unidadNueva = unidadActual;
+	//unidadNueva = unidadActual;
 
 	// se copian los valores anteriores a valores actuales
 	// (esto se debe a que TMR0 solo barre los valores de vuelta/decena/unidadActual para mostrarlos en displays)
 	vueltaActual = vueltaAnterior;
 	decenaActual = decenaAnterior;
-	unidadActual = unidadAnterior;
-	fraccion = decenaActual * 10 + unidadActual;
+	//unidadActual = unidadAnterior;
+	//fraccion = decenaActual * 10 + unidadActual;
+	fraccion = decenaActual;
 
 	if(vueltaNueva > vueltaAnterior) {
 		incrementar();
@@ -395,20 +397,22 @@ void iniciarGiro(void) {
 			incrementar();
 		} else if(decenaNueva < decenaAnterior) {
 			decrementar();
-		} else {
-			if(unidadNueva > unidadAnterior) {
-				incrementar();
-			} else if(unidadNueva < unidadAnterior) {
-				decrementar();
-			} else {
+		}
+//		else {
+//			if(unidadNueva > unidadAnterior) {
+//				incrementar();
+//			} else if(unidadNueva < unidadAnterior) {
+//				decrementar();
+//			}
+		else {
 				// los numeros son exactamente iguales y no se hace nada
 			}
-		}
+//		}
 	}
 
 	vueltaAnterior = vueltaActual; // los nuevos valores se colocan en las variables "anteriores" para un proximo conteo
 	decenaAnterior = decenaActual;
-	unidadAnterior = unidadActual;
+//	unidadAnterior = unidadActual;
 
 
 	flagStart = 0; // flagStart se vuelve a cero para admitir nuevamente el ingreso de números mediante teclado
@@ -423,11 +427,13 @@ void incrementar(void) {
 		if(conteoVueltas) {
 			fraccion = 0; // fraccion se reinicializa a 0 para poder seguir iterando
 		}
-		for(fraccion; fraccion < 48; fraccion++) {
-			unidadActual = fraccion % 10;
-			decenaActual = fraccion / 10;
+		for(fraccion; fraccion < 10; fraccion++) {
+//			unidadActual = fraccion % 10;
+//			decenaActual = fraccion / 10;
+			decenaActual = fraccion;
 			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) || flagStart == 0) {
+//			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) || flagStart == 0) {
+			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva) || flagStart == 0) {
 				flagStop = 1;
 				break;
 			}
@@ -442,7 +448,7 @@ void incrementar(void) {
 
 	if(vueltaActual == 9) { // condicion para "pintar" 9.00 en los displays
 		decenaActual = 0;
-		unidadActual = 0;
+//		unidadActual = 0;
 	}
 
 	flagStop = 0; // se vuelve flagStop a cero para que en un proximo conteo esta condicion no se cumpla inmediatamente se ingresa al "for"
@@ -454,13 +460,15 @@ void decrementar(void) {
 
 	for(vueltaActual; vueltaActual >= 0; vueltaActual--) {
 		if(conteoVueltas) {
-			fraccion = 47; // fraccion se reinicializa a 0 para poder seguir iterando
+			fraccion = 9; // fraccion se reinicializa a 0 para poder seguir iterando
 		}
 		for(fraccion; fraccion >= 0; fraccion--) {
-			unidadActual = fraccion % 10;
-			decenaActual = fraccion / 10;
+//			unidadActual = fraccion % 10;
+//			decenaActual = fraccion / 10;
+			decenaActual = fraccion;
 			for(retardo = 0; retardo < retardo_max; retardo++) {}
-			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) || flagStart == 0) {
+//			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva && unidadActual == unidadNueva) || flagStart == 0) {
+			if((vueltaActual == vueltaNueva && decenaActual == decenaNueva) || flagStart == 0) {
 				flagStop = 1;
 				break;
 			}
@@ -475,7 +483,7 @@ void decrementar(void) {
 
 	if(vueltaActual == 9) { // condicion para "pintar" 9.00 en los displays
 		decenaActual = 0;
-		unidadActual = 0;
+//		unidadActual = 0;
 	}
 
 	flagStop = 0; // se vuelve flagStop a cero para que en un proximo conteo esta condicion no se cumpla inmediatamente se ingresa al "for"
